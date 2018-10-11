@@ -1,0 +1,3 @@
+[submodule "MemoryHole"]
+	path = MemoryHole
+	url = http://www.github.com/Cryowatt/MemoryHole.git

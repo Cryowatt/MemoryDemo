@@ -1,0 +1,22 @@
+version: '2.1'
+services:
+  dotnet2_0:
+    build:
+      context: MemoryHole/MemoryHole
+      args:
+        DOTNET_VERSION: 2.0
+    mem_limit: 134217728
+
+  dotnet2_1:
+    build:
+      context: MemoryHole/MemoryHole
+      args:
+        DOTNET_VERSION: 2.1
+    mem_limit: 134217728
+
+  dotnet2_2:
+    build:
+      context: MemoryHole/MemoryHole
+      args:
+        DOTNET_VERSION: 2.2
+    mem_limit: 134217728

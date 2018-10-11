@@ -11,66 +11,85 @@ namespace MemoryDemo
 
         public static List<Slide> Slides = new List<Slide>
         {
-            Slide.Text(".NET is a garbage collected language."),
+            Slide.Text("_.NET_ is a *garbage collected* runtime."),
             Slide.Text("The garbage collector works by cleaning up unreference memory as required."),
             Slide.Text("To do this, the garbage collector needs to know three things:"),
-            Slide.Text("    • How much memory is the application using"),
-            Slide.Text("    • How much memory does the application need"),
-            Slide.Text("    • How much memory is available"),
-            Slide.Text("\nThis produces a metric that dotnet calls \"memory pressure\""),
-            Slide.Text("Normally, this metric works great. When running in Docker, however, 'memory' isn't always what you expect. For example here is the results of the `free` command when run in a VM with 1GB of memory."),
+            Slide.Text("    • How much memory is the application *using*"),
+            Slide.Text("    • How much memory does the application *need*"),
+            Slide.Text("    • How much memory is *available*"),
+            Slide.Text("This produces a metric that _.NET_ calls *memory pressure*."),
+            Slide.Text("Normally, this metric works great."),
+            Slide.Text("When running in _Docker_, however, 'memory' isn't always what you expect. For example here are the results of the `free` command when run in a VM with 1GB of memory."),
             Slide.Command("docker", "run --rm alpine free"),
+            Slide.Text("The total memory is listed at about 1Gb, as expected."),
+            Slide.Text("_Docker_ can limit the memory used by a container with the `--memory` argument. Not what would you expect to happen when I call `free` with the `--memory` argument set to 40mb?"),
+            Slide.Command("docker", "run --rm --memory=40mb alpine free"),
+            Slide.Text("Those are the same results as before. `free` is lying to us about how much memory is actually available to use."),
+            Slide.Text("When you set memory limitations in Docker, it's setting the limits using _cgroup_."),
+            Slide.Text("Instead of querying the usual APIs that the operating system provides, a process running in a container must query the metrics that _cgroup_ provides."),
+            Slide.Text("Here's what _cgroup_ gives me for available memory for my container:"),
+            Slide.Command("docker", "run --rm alpine cat /sys/fs/cgroup/memory/memory.limit_in_bytes"),
+            Slide.Text("Wow that's a lot of ram!"),
+            Slide.Text("In fact, it's 2^63, which makes sense for a 64-bit machine as this is `Int64.MaxValue`."),
+            Slide.Text("Now lets try the previous command but with the `--memory` argument set."),
+            Slide.Command("docker", "run --rm --memory=40mb alpine cat /sys/fs/cgroup/memory/memory.limit_in_bytes"),
+            Slide.Text("We finally have a reasonable number!"),
+            Slide.Text("What happens if we try something similar in _.NET_. For this example I'm using _powershell core_."),
+            Slide.Command("docker", "run --rm mcr.microsoft.com/powershell:ubuntu-18.04 pwsh -Command [System.Diagnostics.Process]::GetCurrentProcess().MaxWorkingSet"),
+            Slide.Text("Ok, looks the same so far. Now again with `--memory`."),
+            Slide.Command("docker", "run --rm --memory=40mb mcr.microsoft.com/powershell:ubuntu-18.04 pwsh -Command [System.Diagnostics.Process]::GetCurrentProcess().MaxWorkingSet"),
+            Slide.Text("That's not what I was hoping to see."),
+            Slide.Text("*The bad news:*"),
+            Slide.Text("As it turns out, _Microsoft_ hasn't implemented the _dotnet core_ runtime in such a way that it handles _Docker_ correctly."),
+            Slide.Text("To prove this, I've written a simple application. Here's roughly what the code looks like:"),
+            Slide.Code(@"const int ChunkSize = 32_000_0000;
+
+static void Main(string[] args)
+{ 
+    byte[][] hole = new byte[BigNumber][];
+
+    try
+    {
+        for (int i = 0; i < hole.Length; i++)
+        {
+            using (var check = new MemoryFailPoint(ChunkSize * 2 / Megabyte))
+            {
+                hole[i] = new byte[ChunkSize];
+            }
+        }
+    }
+    catch (InsufficientMemoryException)
+    {
+        // Fail gracefully
+    }
+}"),
+            Slide.Text("This application uses a class called `System.MemoryFailPoint` to ask the runtime whether or not a block of code would run out of memory for a given operation."),
+            Slide.Text("`MemoryFailPoint` with throw an `InsufficientMemoryException` if your memory allocation would have likely thrown a `OutOfMemoryException` during execution at that time."),
+            Slide.Text("This is critical because it is a very bad idea to catch an `OutMemoryException`, as doing so would require the runtime to allocate more memory for handling the exception. This is incredible unpredictable and often leaves the application in a corrupted state."),
+            Slide.Text("`MemoryFailPoint` has allowed me to ask the runtime to figure out if the memory I need for an operation would exceed the available memory, so that I may handle the scenario gracefully."),
+            Slide.Text("Here's the sample applcation running natively in Windows."),
+            Slide.Command("dotnet", @"run --project .\MemoryHole\MemoryHole\ 512"),
+            Slide.Text("The application works exactly as it should."),
+            Slide.Text("Here's how it runs in _Docker_ in _dotnet_ `2.0` with `--memory 128MB`:"),
+            Slide.Command("docker-compose", @"run dotnet2_0"),
+            Slide.Text("What happened? No `OutOfMemoryException`, no `InsufficientMemoryException`, no stacktrace?"),
+            Slide.Text("Here's what `docker inspect` shows as the container state."),
+            Slide.Inspect(),
+            Slide.Text("But Eric, `dotnet` 2.0 is *so old* that _Microsoft_ doesn't even support it anymore!"),
+            Slide.Text("Correct, let's see if _Microsoft_ fixed it in 2.1"),
+            Slide.Command("docker-compose", @"run dotnet2_1"),
+            Slide.Inspect(),
+            Slide.Text("Disappointing, right? Well did you know 2.2 is out in preview right now?"),
+            Slide.Command("docker-compose", @"run dotnet2_2"),
+            Slide.Inspect(),
+            Slide.Text("\n...\n...\n..."),
+            Slide.Text("What's the solution?"),
+            Slide.Text("Ideally _Microsoft_ needs to fix this. There are a number of _github_ bugs open around this issue. I've opened this one: https://github.com/dotnet/corefx/issues/32748"),
+            Slide.Text("While they are fixing that, I've created a terrible hack."),
+            Slide.Text("I call it _GarbageTruck_."),
+            Slide.Text("It's a simple service that polls the `cgroup` metrics and if your process gets too close to the memory limits, it calls `GC.Collect()`."),
+            Slide.Text("If you're writing _dotnet_ code in _Docker_, then I *highly recommend* adding a _GarbageTruck_ to your service to keep the memory in check."),
             Slide.Text("[END]"),
-            //Technical Mumbo-Jumbo
-            // runtime must know how much memory is available for it to consume. This usually works fine, but Docker has some quirks about it. Here are the results of the free command when running on a VM with 1Gb of memory available.
-            //PS C:\Users\ericc> docker run --rm alpine free
-
-            //             total       used       free     shared    buffers     cached
-
-            //Mem:        997100     914040      83060       1124     159620     328912
-
-            //-/+ buffers/cache:     425508     571592
-
-            //Swap:      1048572       6532    1042040
-            //The total memory is listed at about 1Gb, as expected. Docker can limit the memory used by a container with the --memory argument. Now what would you expect to happen when I call free with the --memory argument set to 40mb?
-            //PS C:\Users\ericc> docker run --rm --memory=40mb alpine free
-
-            //             total       used       free     shared    buffers     cached
-
-            //Mem:        997100     915152      81948       1156     159732     328944
-
-            //-/+ buffers/cache:     426476     570624
-
-            //Swap:      1048572       6532    1042040
-            //Those are the same results as before. free is lying to us about how much memory is actually available to use. When you set memory limitations in Docker, it's setting the limits using cgroups, which need to be queried differently than available system memory. Here's what cgroups gives me for available memory for my process
-            //PS C:\Users\ericc> docker run --rm alpine cat /sys/fs/cgroup/memory/memory.limit_in_bytes
-            //9223372036854771712
-            //Wow that's a lot of ram! That's basically 2^63, which makes sense for a 64-bit machine. Now the same thing, but with the --memory argument set.
-            //PS C:\Users\ericc> docker run --rm --memory=40mb alpine cat /sys/fs/cgroup/memory/memory.limit_in_bytes
-            //41943040
-            //We finally have a reasonable number! What happens if we try something similar in .NET.
-            //PS C:\Users\ericc> docker run --rm mcr.microsoft.com/powershell:ubuntu-18.04 pwsh -Command '[System.Diagnostics.Process]
-            //::GetCurrentProcess().MaxWorkingSet'
-            //9223372036854775807
-            //Ok, looks the same so far. Now again with --memory.
-            //PS C:\Users\ericc> docker run --rm --memory=40mb mcr.microsoft.com/powershell:ubuntu-18.04 pwsh -Command '[System.Diagno
-            //stics.Process]::GetCurrentProcess().MaxWorkingSet'
-            //9223372036854775807
-            //That's not what I was hoping to see.
-
-            //The bad news
-            //I've spent most of the day trying to find some corner of .NET Framework or the runtime itself that implements anything that analyzes memory utilization correctly in Docker and I've found nothing. Based on the number of open issues in GitHub, this is still an ongoing problem. Because of this limitation in the runtime, .NET will often waits too long to perform a garabge collection, and the container will be killed by cgroups. Normally .NET is a good citizen and keeps its resources tidy, but .NET simply doesn't know where the line is and cannot react quickly enough. I have a repro of this issue with a simple service that pings Fiddler with a simple web request. Each request allocated a couple of kb worth of managed and native resources. The garbage collector will ocassionally run to keep everything tidy, and it can run indefinitely without the --memory argument set in Docker. However, if I allocate a block on memory near the memory threashold, I can reproduce the sigkill due to memory limits predictably with the same application.
-
-            //The good news
-            //I have two experiments that I'd like to run on TheChunnel's scheduler service. The scheduler is incredibley simple and actually does very few memory allocations, so it's a much easier to test against than HEX. Based on my research and local reproductions of this issue, we have two possible options.
-
-            //Option 1: Server Garbage Collector
-            //This one is a simple change to our service to enable ServerGarbageCollection mode.  This is slightly different implementation of the garbage collection in netcore that is designed for long-running services. The fact that we aren't using it currently might be a massively oversight on our part, and I will definitely recommend updating all the templates and services we currently have to include this option. 
-
-            //There are some people who claim that enabling this garbage collection "fixes" the issues with Docker containers, but the results seem inconsistent. This experiment is easy to perform, just set the flag in the csproj file, deploy, and wait.
-
-            //Option 2: Garbage Haxin Code
-            //I feel dirty by even suggesting it, because it goes against all of the recommended practices and guidelines. But what we do is we create a background thread that monitors the process memory and when it approaches the limits defined by cgroups then we explicitly call GC.Collect(). The code I'm suggesting would set off a million red flags if I saw it in a code review, but at this point in time I don't see any other way to fix our memory woes.
         };
 
         public static void Main(string[] args)
@@ -108,6 +127,10 @@ namespace MemoryDemo
             {
                 SlideIndex--;
                 Jump = false;
+            }
+            else if(key.Key == ConsoleKey.Q)
+            {
+                Environment.Exit(0);
             }
 
             SlideIndex = Math.Clamp(SlideIndex, 0, Slides.Count - 1);
