@@ -22,8 +22,7 @@ namespace MemoryDemo
             Slide.Text("When running in _Docker_, however, 'memory' isn't always what you expect. For example here are the results of the `free` command when run in a VM with 1GB of memory."),
             Slide.Command("docker", "run --rm alpine free"),
             Slide.Text("The total memory is listed at about 1Gb, as expected."),
-            Slide.Text("_Docker_ can limit the memory used by a container with the `--memory` argument. Not what would you expect to happen when I call `free` with the `--memory` argument set to 40mb?"),
-            Slide.Command("docker", "run --rm --memory=40mb alpine free"),
+            Slide.Text("_Docker_ can limit the memory used by a container with the `--memory` argument. Now what would you expect to happen when I call `free` with the `--memory` argument set to 40mb?"),            Slide.Command("docker", "run --rm --memory=40mb alpine free"),
             Slide.Text("Those are the same results as before. `free` is lying to us about how much memory is actually available to use."),
             Slide.Text("When you set memory limitations in Docker, it's setting the limits using _cgroup_."),
             Slide.Text("Instead of querying the usual APIs that the operating system provides, a process running in a container must query the metrics that _cgroup_ provides."),
@@ -89,6 +88,7 @@ static void Main(string[] args)
             Slide.Text("I call it _GarbageTruck_."),
             Slide.Text("It's a simple service that polls the `cgroup` metrics and if your process gets too close to the memory limits, it calls `GC.Collect()`."),
             Slide.Text("If you're writing _dotnet_ code in _Docker_, then I *highly recommend* adding a _GarbageTruck_ to your service to keep the memory in check."),
+            Slide.Text("<QUESTIONS>"),
             Slide.Text("[END]"),
         };
 
