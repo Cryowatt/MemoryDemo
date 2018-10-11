@@ -94,6 +94,10 @@ static void Main(string[] args)
 
         public static void Main(string[] args)
         {
+            Console.Clear();
+            Console.WriteLine("The presentation will begin shortly...");
+            Console.ReadLine();
+            Console.Clear();
             Console.OutputEncoding = Encoding.UTF8;
 
             for (; ; SlideIndex++)
