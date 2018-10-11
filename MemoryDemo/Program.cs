@@ -74,7 +74,7 @@ static void Main(string[] args)
             Slide.Text("What happened? No `OutOfMemoryException`, no `InsufficientMemoryException`, no stacktrace?"),
             Slide.Text("Here's what `docker inspect` shows as the container state."),
             Slide.Inspect(),
-            Slide.Text("But Eric, `dotnet` 2.0 is *so old* that _Microsoft_ doesn't even support it anymore!"),
+            Slide.Text("\"But Eric, `dotnet` 2.0 is *so old* that _Microsoft_ doesn't even support it anymore!\""),
             Slide.Text("Correct, let's see if _Microsoft_ fixed it in 2.1"),
             Slide.Command("docker-compose", @"run dotnet2_1"),
             Slide.Inspect(),
